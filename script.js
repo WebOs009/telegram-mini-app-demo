@@ -14,8 +14,9 @@ const sections = {
     'owner_status': document.getElementById('section-owner-status'),
     'tariffs': document.getElementById('section-tariffs'),
     'final': document.getElementById('section-final'),
-    'no_tech': document.getElementById('section-no-tech'),
-    'office_commercial': document.getElementById('section-office-commercial')
+    'no_tech': document.getElementById('section-no-tech'), // Обновленная секция
+    'office_commercial': document.getElementById('section-office-commercial'),
+    'loading': document.getElementById('section-loading') // Новая секция
 };
 
 const addressPrompt = document.getElementById('address-prompt');
@@ -27,7 +28,11 @@ function showSection(sectionName) {
     for (let key in sections) {
         sections[key].style.display = 'none';
     }
-    sections[sectionName].style.display = 'block';
+    if (sections[sectionName]) {
+        sections[sectionName].style.display = 'block';
+    } else {
+        console.error(`Section '${sectionName}' not found.`);
+    }
 }
 
 // Отправка данных боту
@@ -36,7 +41,6 @@ function sendDataToBot(data) {
         tg.sendData(JSON.stringify(data));
     } else {
         console.error("Telegram Web App API not available.");
-        // В случае отладки вне Telegram, можно логировать или выводить в консоль
         alert("Telegram Web App API не доступен. Данные: " + JSON.stringify(data));
     }
 }
@@ -69,26 +73,14 @@ function submitAddress() {
     }
 
     // Отправляем адрес боту для проверки тех. возможности
-    // Бот должен будет ответить через метод answerWebAppQuery или через sendMessage
-    // В данном упрощенном примере мы просто отправляем данные
     sendDataToBot({
         action: 'check_address',
         connection_type: connectionType,
         address: address
     });
 
-    // В реальном приложении здесь была бы индикация загрузки и ожидание ответа от бота
-    // Для этого примера, мы покажем следующую секцию, предполагая, что бот позже пришлет ответ
-    // или Mini App получит данные через onEvent('messageSent')
-    // Однако, более правильный подход - бот отвечает на запрос Mini App
-
-    // Для демонстрации, покажем следующую секцию (как будто проверка прошла)
-    if (connectionType === 'Квартира') {
-        showSection('owner_status');
-    } else if (connectionType === 'Частный сектор') {
-        loadTariffs(connectionType);
-        showSection('tariffs');
-    }
+    // Показываем экран загрузки и ждем ответа от бота
+    showSection('loading');
 }
 
 function selectOwnerStatus(status) {
@@ -171,22 +163,32 @@ function goBack(fromSection) {
 // Изначальное отображение первой секции при загрузке Mini App
 showSection('type');
 
-// Обработка получения данных от бота (например, результат проверки тех. возможности)
-// ВАЖНО: Это более продвинутая часть. Для начала мы будем просто отправлять данные боту,
-// и бот будет отвечать обычным сообщением.
-// Если вы хотите, чтобы бот отправлял данные обратно в Mini App,
-// вам нужно будет использовать метод answerWebAppQuery со стороны бота
-// и обработчик tg.onEvent('invoiceClosed', ...) или similar.
-// Однако, для большинства случаев, Mini App просто отправляет данные, а бот отвечает в чате.
+// --- ОБРАБОТКА СООБЩЕНИЙ ОТ БОТА ---
+// Этот обработчик будет слушать сообщения, которые бот отправляет пользователю в чат.
+// Mini App сможет отреагировать на эти сообщения.
+tg.onEvent('message', function(event) {
+    const message = event.data; // Получаем текстовое сообщение от бота
 
-// Пример того, как Mini App может получить данные, если бот ответил через answerWebAppQuery
-/*
-tg.onEvent('mainButtonClicked', function() {
-    // Эта функция вызывается, когда пользователь нажимает на главную кнопку Telegram,
-    // которая может быть использована для отправки данных обратно боту.
-    // Пока что мы используем sendData.
+    console.log("Mini App получил сообщение от бота:", message);
+
+    if (sections['loading'].style.display === 'block') { // Только если мы сейчас находимся в состоянии ожидания проверки адреса
+        if (message.includes("Отличная новость!")) {
+            // Если бот подтвердил тех. возможность, переходим к следующему шагу в Mini App
+            console.log("Тех. возможность подтверждена ботом. Переходим к тарифам/статусу владельца.");
+            if (connectionType === 'Квартира') {
+                showSection('owner_status');
+            } else if (connectionType === 'Частный сектор') {
+                loadTariffs(connectionType);
+                showSection('tariffs');
+            }
+        } else if (message.includes("К сожалению, по вашему адресу нет технической возможности.")) {
+            // Если бот сообщил об отсутствии тех. возможности
+            console.log("Тех. возможность отсутствует. Показываем сообщение пользователю.");
+            showSection('no_tech');
+        }
+    }
 });
-*/
+
 
 // Устанавливаем тему Telegram Web App
 function setWebAppTheme() {
