@@ -1,1 +1,64 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Выбор услуг интернета</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Подключение интернета</h1>
 
+        <div id="section-type" class="section">
+            <h2>Куда вы хотите подключить интернет?</h2>
+            <button onclick="selectConnectionType('Частный сектор')">Частный сектор</button>
+            <button onclick="selectConnectionType('Квартира')">Квартира</button>
+            <button onclick="selectConnectionType('Офис/Коммерция')">Офис/Коммерция</button>
+        </div>
+
+        <div id="section-address" class="section" style="display: none;">
+            <h2>Введите полный адрес</h2>
+            <p id="address-prompt"></p>
+            <input type="text" id="address-input" placeholder="Например: г.Караганда, ул.Бабушкина, дом 205">
+            <button onclick="submitAddress()">Проверить</button>
+            <button onclick="goBack('type')">Назад</button>
+        </div>
+
+        <div id="section-owner-status" class="section" style="display: none;">
+            <h2>Кем Вы являетесь?</h2>
+            <button onclick="selectOwnerStatus('собственник')">Собственник</button>
+            <button onclick="selectOwnerStatus('квартирант')">Квартирант</button>
+            <button onclick="goBack('address')">Назад</button>
+        </div>
+
+        <div id="section-tariffs" class="section" style="display: none;">
+            <h2>Выберите тариф</h2>
+            <div id="tariff-list">
+                </div>
+            <button onclick="goBack('owner_status')">Назад</button>
+        </div>
+
+        <div id="section-final" class="section" style="display: none;">
+            <h2>Ваша заявка принята!</h2>
+            <p>Спасибо за ваше обращение. Данные переданы менеджеру, ожидайте звонка.</p>
+            <button onclick="closeApp()">Закрыть</button>
+        </div>
+
+        <div id="section-no-tech" class="section" style="display: none;">
+            <h2>Технической возможности нет</h2>
+            <p>К сожалению, по вашему адресу нет технической возможности. Как только там появимся, мы с вами свяжемся. Точных сроков по построению, к сожалению, нет. Спасибо за обращение.</p>
+            <button onclick="closeApp()">Закрыть</button>
+        </div>
+
+        <div id="section-office-commercial" class="section" style="display: none;">
+            <h2>Офис/Коммерция</h2>
+            <p>Для подключения бизнеса требуется индивидуальный подход. Наш менеджер свяжется с Вами в ближайшее время для уточнения деталей.</p>
+            <button onclick="closeApp()">Закрыть</button>
+        </div>
+    </div>
+
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
