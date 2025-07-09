@@ -22,21 +22,26 @@
             <p id="address-prompt"></p>
             <input type="text" id="address-input" placeholder="Например: г.Караганда, ул.Бабушкина, дом 205">
             <button onclick="submitAddress()">Проверить</button>
-            <button onclick="goBack('type')">Назад</button>
+            <button onclick="goBack('address')">Назад</button>
         </div>
+
+        <div id="section-loading" class="section" style="display: none;">
+            <h2>Проверка адреса...</h2>
+            <p>Пожалуйста, подождите, мы проверяем техническую возможность подключения по вашему адресу.</p>
+            <div class="loader"></div> </div>
 
         <div id="section-owner-status" class="section" style="display: none;">
             <h2>Кем Вы являетесь?</h2>
             <button onclick="selectOwnerStatus('собственник')">Собственник</button>
             <button onclick="selectOwnerStatus('квартирант')">Квартирант</button>
-            <button onclick="goBack('address')">Назад</button>
+            <button onclick="goBack('owner_status')">Назад</button>
         </div>
 
         <div id="section-tariffs" class="section" style="display: none;">
             <h2>Выберите тариф</h2>
             <div id="tariff-list">
-                </div>
-            <button onclick="goBack('owner_status')">Назад</button>
+            </div>
+            <button onclick="goBack('tariffs')">Назад</button>
         </div>
 
         <div id="section-final" class="section" style="display: none;">
