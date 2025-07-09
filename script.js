@@ -72,9 +72,17 @@ function submitAddress() {
         return;
     }
 
-    // Отправляем адрес боту для проверки тех. возможности
+    // Проверяем наличие query_id
+    if (!tg.initDataUnsafe || !tg.initDataUnsafe.query_id) {
+        console.error("query_id не доступен. Невозможно отправить запрос к боту.");
+        alert("Ошибка: Невозможно отправить запрос. Пожалуйста, попробуйте еще раз позже.");
+        return;
+    }
+
+    // Отправляем адрес боту для проверки тех. возможности, включая query_id
     sendDataToBot({
         action: 'check_address',
+        query_id: tg.initDataUnsafe.query_id, // Добавляем query_id
         connection_type: connectionType,
         address: address
     });
