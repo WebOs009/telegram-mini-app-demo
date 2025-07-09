@@ -3,6 +3,10 @@ const tg = window.Telegram.WebApp;
 tg.ready();
 tg.expand(); // Разворачиваем приложение на весь экран
 
+// Добавим логирование для отладки
+console.log("Telegram Web App initialized and ready.");
+console.log("tg.initDataUnsafe:", tg.initDataUnsafe);
+
 let connectionType = '';
 let ownerStatus = '';
 let address = '';
@@ -14,9 +18,9 @@ const sections = {
     'owner_status': document.getElementById('section-owner-status'),
     'tariffs': document.getElementById('section-tariffs'),
     'final': document.getElementById('section-final'),
-    'no_tech': document.getElementById('section-no-tech'), // Обновленная секция
+    'no_tech': document.getElementById('section-no-tech'),
     'office_commercial': document.getElementById('section-office-commercial'),
-    'loading': document.getElementById('section-loading') // Новая секция
+    'loading': document.getElementById('section-loading')
 };
 
 const addressPrompt = document.getElementById('address-prompt');
@@ -25,6 +29,7 @@ const tariffList = document.getElementById('tariff-list');
 
 // Функция для переключения секций
 function showSection(sectionName) {
+    console.log(`Showing section: ${sectionName}`);
     for (let key in sections) {
         sections[key].style.display = 'none';
     }
@@ -37,7 +42,9 @@ function showSection(sectionName) {
 
 // Отправка данных боту
 function sendDataToBot(data) {
-    if (tg.isExpanded) { // Убедимся, что WebApp API доступен
+    if (tg.isExpanded) {
+        // Добавляем логирование перед отправкой
+        console.log("Attempting to send data to bot:", JSON.stringify(data));
         tg.sendData(JSON.stringify(data));
     } else {
         console.error("Telegram Web App API not available.");
@@ -50,16 +57,20 @@ function selectConnectionType(type) {
     connectionType = type;
     if (type === 'Частный сектор') {
         addressPrompt.textContent = "Пожалуйста, укажите Ваш полный адрес для проверки технической возможности подключения.\nПример: г.Караганда, ул.Бабушкина, дом 205";
-        addressInput.value = ''; // Очищаем поле
+        addressInput.value = '';
         showSection('address');
     } else if (type === 'Квартира') {
         addressPrompt.textContent = "Пожалуйста, укажите Ваш полный адрес для проверки технической возможности подключения.\nПример: г.Караганда, Бухар-Жырау 56, кв 99";
-        addressInput.value = ''; // Очищаем поле
+        addressInput.value = '';
         showSection('address');
     } else if (type === 'Офис/Коммерция') {
+        // Для 'Офис/Коммерция' отправляем данные и сразу показываем секцию 'office_commercial'.
+        // Бот не будет возвращать ответ через showAlert в этом случае,
+        // так как это просто запрос на связь, а не проверка тех. возможности.
         sendDataToBot({
             action: 'office_commercial_request',
-            connection_type: connectionType
+            connection_type: connectionType,
+            query_id: tg.initDataUnsafe ? tg.initDataUnsafe.query_id : null // Добавляем query_id
         });
         showSection('office_commercial');
     }
@@ -72,7 +83,6 @@ function submitAddress() {
         return;
     }
 
-    // Проверяем наличие query_id
     if (!tg.initDataUnsafe || !tg.initDataUnsafe.query_id) {
         console.error("query_id не доступен. Невозможно отправить запрос к боту.");
         alert("Ошибка: Невозможно отправить запрос. Пожалуйста, попробуйте еще раз позже.");
@@ -82,7 +92,7 @@ function submitAddress() {
     // Отправляем адрес боту для проверки тех. возможности, включая query_id
     sendDataToBot({
         action: 'check_address',
-        query_id: tg.initDataUnsafe.query_id, // Добавляем query_id
+        query_id: tg.initDataUnsafe.query_id, // ОБЯЗАТЕЛЬНО отправляем query_id
         connection_type: connectionType,
         address: address
     });
@@ -139,6 +149,7 @@ function selectTariff(callbackData, tariffName, tariffPrice, routerInfo) {
 
     sendDataToBot({
         action: 'submit_application',
+        query_id: tg.initDataUnsafe ? tg.initDataUnsafe.query_id : null, // Добавляем query_id
         connection_type: connectionType,
         address: address,
         owner_status: ownerStatus, // Будет "undefined" для частного сектора, что нормально
@@ -171,28 +182,69 @@ function goBack(fromSection) {
 // Изначальное отображение первой секции при загрузке Mini App
 showSection('type');
 
-// --- ОБРАБОТКА СООБЩЕНИЙ ОТ БОТА ---
-// Этот обработчик будет слушать сообщения, которые бот отправляет пользователю в чат.
-// Mini App сможет отреагировать на эти сообщения.
-tg.onEvent('message', function(event) {
-    const message = event.data; // Получаем текстовое сообщение от бота
+// --- ОБРАБОТКА ОТВЕТОВ ОТ БОТА ЧЕРЕЗ show_alert/show_popup ---
+// Этот обработчик будет слушать закрытие всплывающих окон,
+// которые были вызваны ботом через answerWebAppQuery с type "show_alert" или "show_popup".
+tg.onEvent('popupClosed', function(result) {
+    console.log("Popup closed with result:", result);
 
-    console.log("Mini App получил сообщение от бота:", message);
+    // Проверяем, находимся ли мы на экране загрузки
+    if (sections['loading'].style.display === 'block') {
+        // Мы ожидаем, что бот отправит callback_data в result, если это alert.
+        // Для show_alert button_id всегда "ok", так что полагаемся на callback_data,
+        // которую мы передали в answer_web_app_query.
+        const callbackData = result ? result.button_id : null; // Для show_alert button_id === "ok"
 
-    if (sections['loading'].style.display === 'block') { // Только если мы сейчас находимся в состоянии ожидания проверки адреса
-        if (message.includes("Отличная новость!")) {
-            // Если бот подтвердил тех. возможность, переходим к следующему шагу в Mini App
-            console.log("Тех. возможность подтверждена ботом. Переходим к тарифам/статусу владельца.");
+        // Если вы в боте используете "callback_data": "tech_available" или "no_tech_available"
+        // внутри JSON для answerWebAppQuery с type: "show_alert", то результат будет выглядеть иначе.
+        // Лучше проверять текст, как раньше, или передавать более явный статус.
+
+        // Поскольку мы в `bot.py` отправляем `{"type": "show_alert", "text": "...", "callback_data": "..."}`
+        // Mini App не получает `callback_data` напрямую из `popupClosed` для `show_alert`.
+        // `popupClosed` возвращает `button_id` только для `show_popup`.
+        //
+        // Проще всего: бот будет отправлять `show_alert`, и мы просто будем
+        // реагировать на *сам факт* закрытия alert и переходить дальше.
+        // Если `show_alert` показался, значит, бот ответил.
+
+        // Чтобы быть уверенным в статусе, бот должен отправить дополнительную
+        // информацию через set_closing_behavior или set_main_button, что сложнее.
+
+        // **УПРОЩЕННОЕ РЕШЕНИЕ:** Мы предполагаем, что если alert был вызван и закрыт,
+        // то он был либо о наличии тех.возможности, либо об ее отсутствии.
+        // И Mini App должен сам знать, куда идти.
+        // Это не идеально, так как не всегда понятно, какой именно alert был закрыт.
+
+        // ***ВОТ КАК МЫ ДОЛЖНЫ СДЕЛАТЬ В БОТЕ И ЗДЕСЬ (script.js)***
+        // В bot.py, вместо:
+        // result=json.dumps({"type": "show_alert", "text": response_text, "callback_data": "tech_available"})
+        // Сделать:
+        // result=json.dumps({"type": "show_popup", "popup": {"title": "Результат", "message": response_text, "buttons": [{"text": "Продолжить", "id": "tech_available"}]}})
+        // Тогда `popupClosed` получит `result.button_id`.
+
+        // Если бот отправляет `show_alert` (без `show_popup`), то `popupClosed` даст `result = { button_id: 'ok' }`
+        // без дополнительных данных. В этом случае, Mini App не знает, какой именно alert был.
+        // Поэтому **нужно, чтобы бот отправлял `show_popup`**.
+
+        // Исправим bot.py, чтобы он отправлял show_popup, а не show_alert.
+        // А здесь мы будем реагировать на button_id из `result` от `popupClosed`.
+
+        if (result && result.button_id === 'tech_available_ok') { // Из bot.py: "id": "tech_available_ok"
+            console.log("Тех. возможность подтверждена ботом через popup. Переходим к тарифам/статусу владельца.");
             if (connectionType === 'Квартира') {
                 showSection('owner_status');
             } else if (connectionType === 'Частный сектор') {
                 loadTariffs(connectionType);
                 showSection('tariffs');
             }
-        } else if (message.includes("К сожалению, по вашему адресу нет технической возможности.")) {
-            // Если бот сообщил об отсутствии тех. возможности
+        } else if (result && result.button_id === 'no_tech_ok') { // Из bot.py: "id": "no_tech_ok"
             console.log("Тех. возможность отсутствует. Показываем сообщение пользователю.");
             showSection('no_tech');
+        } else {
+             // Если popup закрыт без явного результата, или это был другой popup
+             console.log("Popup закрыт без специфического результата, или это не был popup проверки тех. возможности.");
+             // Можно вернуть пользователя на предыдущий экран или показать общую ошибку
+             // showSection('address'); // Например, вернуться к вводу адреса
         }
     }
 });
